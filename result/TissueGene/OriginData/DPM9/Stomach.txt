@@ -1,0 +1,53 @@
+^DATABASE = Pattern Gene Database (PaGenBase)
+!Database_institute = Bioinformatics-Aided Drug Discovery Group at XMU China
+!Database_web_link = http://bioinf.xmu.edu.cn/PaGenBase/index.jsp
+!Data_processed_by Jian-Bo Pan; email = panjianbo87@gmail.com
+!Specific Genes for Homo sapiens/tissue
+!Version: PaGenBase 1.0
+!Dataset(PMID):GDS1096|Array_count(15950434).
+Gene Symbol	Dataset	DPM/PubMed ID	Sample	SPM
+CHIA	GDS1096|Array_count	1.0	Stomach	1.0
+PICK1	GDS1096|Array_count	1.0	Stomach	1.0
+CLDN18	GDS1096|Array_count	1.0	Stomach	1.0
+ESRRG	GDS1096|Array_count	1.0	Stomach	1.0
+GPR4	GDS1096|Array_count	1.0	Stomach	1.0
+LOC80054	GDS1096|Array_count	1.0	Stomach	1.0
+FER1L4	GDS1096|Array_count	1.0	Stomach	1.0
+ZKSCAN3	GDS1096|Array_count	1.0	Stomach	1.0
+GIF	GDS1096|Array_count	1.0	Stomach	1.0
+E2F4	GDS1096|Array_count	1.0	Stomach	1.0
+MUC6	GDS1096|Array_count	1.0	Stomach	1.0
+RGNEF	GDS1096|Array_count	1.0	Stomach	1.0
+ZDHHC18	GDS1096|Array_count	1.0	Stomach	1.0
+GKN1	GDS1096|Array_count	1.0	Stomach	1.0
+ATP4B	GDS1096|Array_count	1.0	Stomach	1.0
+SLC4A2	GDS1096|Array_count	1.0	Stomach	1.0
+GCNT1	GDS1096|Array_count	1.0	Stomach	1.0
+URI1	GDS1096|Array_count	1.0	Stomach	1.0
+MTERFD2	GDS1096|Array_count	1.0	Stomach	1.0
+TFF2	GDS1096|Array_count	1.0	Stomach	1.0
+LIPF	GDS1096|Array_count	1.0	Stomach	1.0
+TRPA1	GDS1096|Array_count	1.0	Stomach	1.0
+PPFIBP2	GDS1096|Array_count	1.0	Stomach	1.0
+ERN2	GDS1096|Array_count	1.0	Stomach	1.0
+ADAM28	GDS1096|Array_count	1.0	Stomach	1.0
+CAPN9	GDS1096|Array_count	1.0	Stomach	1.0
+SLC28A2	GDS1096|Array_count	1.0	Stomach	1.0
+KCNE2	GDS1096|Array_count	1.0	Stomach	1.0
+HECW1	GDS1096|Array_count	1.0	Stomach	1.0
+SYTL2	GDS1096|Array_count	1.0	Stomach	1.0
+FAM49B	GDS1096|Array_count	1.0	Stomach	1.0
+ATP4A	GDS1096|Array_count	0.997	Stomach	0.9989
+PGC	GDS1096|Array_count	0.9933	Stomach	0.9954
+TFF1	GDS1096|Array_count	0.9945	Stomach	0.9952
+SULT1C2	GDS1096|Array_count	0.9944	Stomach	0.9923
+PSCA	GDS1096|Array_count	0.9919	Stomach	0.9873
+CA9	GDS1096|Array_count	0.9926	Stomach	0.9863
+CTSE	GDS1096|Array_count	0.9805	Stomach	0.9735
+MUC5AC	GDS1096|Array_count	0.9923	Stomach	0.9675
+PIK3C2G	GDS1096|Array_count	0.991	Stomach	0.9537
+CHD2	GDS1096|Array_count	0.9906	Stomach	0.9494
+NQO1	GDS1096|Array_count	0.985	Stomach	0.9446
+ANXA10	GDS1096|Array_count	0.9842	Stomach	0.9218
+CCL11	GDS1096|Array_count	0.9882	Stomach	0.9107
+TRPM3	GDS1096|Array_count	0.9881	Stomach	0.9088
