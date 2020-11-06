@@ -241,22 +241,7 @@ def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth,
     :param peakDisThreshold: 阈值
     :return:
     '''
-    ndrDict = {}
     ndrObjectList = []
-    # normalizedRawDataList = preprocessing.minmax_scale(rawDataList)
-    # fig, axes = plt.subplots(2, 1)
-    # ax1 = axes[0]  # 子图1
-    # ax2 = axes[1]  # 子图2
-    # ax1.plot(x, smoothData, color=color, label=label)
-    # ax1.plot(peaksCorrectionX, smoothData[peaksX], 'x' + color, label='顶点')
-    # ax2.plot(x, rawDataList, 'gray', label='原始数据')
-
-    # ndrDict['chromosome'] = []
-    # ndrDict['startPos'] = []
-    # ndrDict['endPos'] = []
-    # ndrDict['rawData'] = []
-    # ndrDict['smoothData'] = []
-    # ndrDict['smoothMethod'] = []
     for i in range(len(peakObjectList) - 1):
         peakHeight1 = smoothData[peakObjectList[i].peakIndex] - max(smoothData[peakObjectList[i].startPos],
                                                                     smoothData[peakObjectList[i].endPos])
@@ -290,7 +275,6 @@ def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth,
                                                                                                          peakObjectList,
                                                                                                          5, ndr,
                                                                                                          False)
-                    # if (kLeft < 0.2 and kRight < 0.2 and coef[0][0] * 1000 < 2 and mse < 5):
                     condition = [varWidth < 450, varHeight < 1200, varAngel < 220, varDis < 350, varArea < 300,
                                  peakCount >= 7]
                     cnt = condition.count(True)
@@ -298,13 +282,6 @@ def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth,
                           kLeft < 0.22 and kRight < 0.22 and kNDR < 0.25 and ndrArea < 10 and coef[0][
                         0] * 1000 < 3 and mse < 4 and smallNdrAreaDepth < 45):
                         continue
-                    # kRight, kLeft, kNDR, ndrArea, ndrMax = judgeNDRWithDepth(smoothData, rawDataList, depth, squareWave,
-                    #                                                          ndr,
-                    #                                                          peakObjectList,
-                    #                                                          contig, start, slidWinSize=6, flag=True)
-                    # varWidth, varHeight, varAngel, varDis, varArea = haveNearContinuouslyPeak(smoothData, rawDataList,
-                    #                                                                           peakObjectList, 5, ndr,
-                    #                                                                           True)
                     ndr.startPos = minIndex - 300
                     ndr.endPos = minIndex + 300
                     ndrObjectList.append(ndr)
@@ -471,10 +448,6 @@ def drawPeaksWithDepth(lFDepth, base, dataList, win, x, start, y_label):
         wpsFilterData = np.array(data[0])
         peaksX = data[1]
         peakObjectList = data[2]
-        # properties = data[2]
-        # for peak in peaksX:
-        #     plt.vlines(peak - 85, -0.1 - cIndex/10, 0.8 + cIndex/10, colors=colorsList[cIndex], linestyles='dashed')
-        #     plt.vlines(peak + 85, -0.1 - cIndex/10, 0.8 + cIndex/10, colors=colorsList[cIndex], linestyles='dashed')
         minLen = min(len(x), len(wpsFilterData))
         print('minLen = ', minLen)
         line = axes[cIndex].plot(x[0: minLen], wpsFilterData[0: minLen], colorsList[cIndex])
@@ -565,6 +538,39 @@ def baseline_als2(y, lam, p, niter=10):
     w = p * (y > z) + (1-p) * (y < z)
   return z
 
+def AdjustWPS(wpsList):
+    n = len(wpsList)
+    # lenth = n - win - 1
+    subarray = wpsList[0: n]
+    tmpLength = len(subarray)
+    # medianA = np.zeros(tmpLength)
+    # chaA = np.zeros(tmpLength)
+    medianA = [0] * tmpLength
+    chaA = [0] * tmpLength
+    adjustWin = 1000
+    mid = 500
+    start = 0
+    end = adjustWin + 1
+    while end <= tmpLength:
+        tmpArray = subarray[start: end]
+        minn, median, maxn = getMMM(tmpArray)
+        tmploc = int((start + end + 1) / 2)
+        medianA[tmploc] = median
+        chaA[tmploc] = maxn - minn + 1
+        start += 1
+        end += 1
+    x = 0
+    while x < tmpLength:
+        loc = x
+        if loc < 501:
+            loc = 501
+        if loc >= tmpLength - 501:
+            loc = tmpLength - 501
+        # print(chaA)
+        subarray[x] = (subarray[x] - medianA[loc]) / chaA[loc]
+        x += 1
+    return np.array(subarray)
+
 
 
 if __name__ == '__main__':
@@ -590,129 +596,44 @@ if __name__ == '__main__':
 
     pointList = getPointData(pointFilePath, 1000000000)
     allPoint = len(pointList)
-    # allPoint = len(pointList)
     round = 0
     s = e = 0
     peaksList = []
-    # kal_filter = Kalman_filter.kalman_filter(Q=0.1, R=10)
-    # chr12 34484000 34561000
     t1 = time.clock()
 
     peakWdith = []
     peakDis = []
-    peakDisSet = set()
-    # for geneName in open('/home/chenlb/WPSCalProject/filePathList/HK_gene_names.txt'):
-        # if not geneDict.__contains__(geneName[:-1]):
-        #     continue
     for point in pointList:
         print('*************************************  round : ', round, '  ->  ', allPoint,
               ' *************************************')
         round += 1
-        if round > 20:
-            break
-        # gene = geneDict[geneName[:-1]]
-        # contig = gene.chr
-        # start = gene.tssBinStart
-        # end = gene.tssBinEnd
-        # step = end - start
-        contig = point[0]
-        start = int(point[1]) - 1500
-        end = int(point[2]) + 1500
+        contig = point[0] #if the format of contig is chr*,  contig = 'chr' + point[0]
+        start = int(point[1])
+        end = int(point[2])
         step = end - start
         peaksList = []
         dataList = []
         x = np.arange(start, end)
-        # wpsList_Nor = np.zeros(step + 600, dtype=np.int)
-        # wpsList_Ovarian = np.zeros(step + 600, dtype=np.int)
         length = step + 1
-        # wpsList_Nor, coverageArray_Nor = getWpsListAndCover(NormalPathList, wpsList_Nor, win, contig, start, end, s, e)
-        # wpsList_Ovarian, coverageArray_Ovarian = getWpsListAndCover(OvarianPathList, wpsList_Ovarian, win, contig, start, end, s, e)
         wpsList_Nor, lFdepth_Nor, sFdepth_Nor = callOneBed(bamfileList, contig, start, end, win=120)
-        # wpsList_Ovarian, lFdepth_Ovarian, sFdepth_Ovarian = callOneBed(OvarianPathList, contig, start, end, win=120)
-        # wpsList_Nor_sw, lFdepth_Nor_sw, sFdepth_Nor_sw = callOneBed(NormalPathList, contig, start, end, win=45)
-        # wpsList_Ovarian_sw, lFdepth_Ovarian_sw, sFdepth_Ovarian_sw = callOneBed(OvarianPathList, contig, start, end, win=45)
         rawWPS = np.array(wpsList_Nor)
-
         adjustWpsList_Nor = AdjustWPS(wpsList_Nor)
-
-        # peaks = scipy_signal_find_peaks(adjustWpsList_Nor, height=0.01, distance=30, prominence=0.1, width=[25, 170])
-        # peakObjectList = getValley(adjustWpsList_Nor, rawWPS, np.array(peaks[1]), 4)
-        # peaks.append(peakObjectList)
-        # fastFilter2(adjustWpsList)
-
         squareWave = []
-        # lowLength, varWidth, squareWave = fastFilter(adjustWpsList_Nor, peaks, False)
-        # if ((lowLength > 150 and varWidth > 280) or (lowLength > 160 or varWidth > 450)) and not (
-        #         lowLength < 90 or varWidth < 180):
-        #     print('lowLength : ', lowLength, ' varWidth : ', varWidth)
-        #     continue
-        # depthBase = peakutils.baseline(lFdepth_Nor, 3)
-        # lFdepth_Nor = np.subtract(lFdepth_Nor, depthBase)
         try:
             base = peakutils.baseline(adjustWpsList_Nor, 8)
         except ZeroDivisionError:  # 'ZeroDivisionError'除数等于0的报错方式^M
             base = np.zeros(len(adjustWpsList_Nor))
-
-        # base = baseline_als(adjustWpsList_Nor, 1, 1, 10)
         adjustWpsList_Nor = np.subtract(adjustWpsList_Nor, base)
-        # x = x[1000: -1000]
-        # adjustWpsList_Nor = adjustWpsList_Nor[1000: -1000]
-        # wpsList_Nor = wpsList_Nor[1000: -1000]
-        # lFdepth_Nor = lFdepth_Nor[1000: -1000]
-        # kalWpsList_Nor = kalman_filter(kal_filter, adjustWpsList_Nor)
-        # smoothWpsList_Nor = smooth(adjustWpsList_Nor, 51)
-        # smoothWpsList_Nor = medfilt(adjustWpsList_Nor, 25)
-        # z = sm.nonparametric.lowess(adjustWpsList_Nor, np.array([i for i in range(len(wpsList_Nor))]), frac=0.003)
-        # smoothWpsList_Nor = z[:, 1]
-        smoothWpsList_Nor = savgol_filter_func(adjustWpsList_Nor, 35, 1)
-        # smoothWpsList_Nor = smooth(smoothWpsList_Nor, 51)
-        # waveWpsList_Nor = waveletSmooth(adjustWpsList_Nor, 0.1)
-        # dataList = [lFdepth_Nor, rawWPS, base, smoothWpsList_Nor]
+        smoothWpsList_Nor = savgol_filter_func(adjustWpsList_Nor, 35, 1) #SG Filter
         norm_lFdepth_Nor = preprocessing.minmax_scale(lFdepth_Nor)
         peakHeight = []
         for data in [smoothWpsList_Nor]:
             peaks = scipy_signal_find_peaks(data, height=0.28, distance=25, prominence=0.25, width=[25, 170])
             peakObjectList = getValley(data, rawWPS, peaks[1], 5)
-            # peakObjectListCWT = getValley(adjustWpsList, rawDataList, peaksCWT[1], 4)
-            #
             mergeValley(peakObjectList)
-            # mergeValley(peakObjectListCWT)
             peakObjectList = mergePeaks(peakObjectList)
             peaksList.append([data, peaks[1], peakObjectList])
-            # for i in range(len(peakObjectList) - 1):
-            #     width = peakObjectList[i].endPos - peakObjectList[i].startPos
-            #     if width > 80 and width < 230:
-            #         peakWdith.append(width)
-            #     peakHeight.append(100 * min(smoothWpsList_Nor[peakObjectList[i].peakIndex] - smoothWpsList_Nor[peakObjectList[i].startPos] ,
-            #                           smoothWpsList_Nor[peakObjectList[i].peakIndex] - smoothWpsList_Nor[peakObjectList[i].endPos]))
-            #     peakDis.append(peakObjectList[i + 1].peakIndex - peakObjectList[i].peakIndex)
-            #     peakDisSet.add(peakObjectList[i + 1].peakIndex - peakObjectList[i].peakIndex)
-        # ndrObjectList = findTssNDR(x, start, contig, peakObjectList, smoothWpsList_Nor, rawWPS, norm_lFdepth_Nor,
-        #                            squareWave,
-        #                            label='sg滤波数据', color='b',
-        #                            smoothMethod='sg滤波数据', peakDisThreshold=230)
-        # for kernel in ['linear', 'gaussian', 'tophat', 'epanechnikov']:
-        #         KernelDensityEstimate(kernel=kernel, bandwidth=3, dataList=peakHeight, start=0, end=120, point=10000,
-        #                               bin=80, maxYlim=0.035, minYlim=-0.005, title='波峰高度分布')
-        # peakHeight = np.array(peakHeight)
-        # print(' mean : ', np.mean(peakHeight), ' median : ', np.median(peakHeight), ' left : ', np.mean(peakHeight) - 2 * np.std(peakHeight, ddof=1),
-        #       ' right : ', np.mean(peakHeight) + 2 * np.std(peakHeight, ddof=1))
-        peaksList.append([rawWPS, peaks[1], peakObjectList])
-        drawPeaksWithDepth(lFdepth_Nor, base, peaksList, 120, x, start,
-                           ['长片段深度', 'sg滤波处理WPS', '原始WPS', '卷积平滑', 'sg滤波', '小波滤波'])
-        # adjustWpsList_Ovarian = AdjustWPS(wpsList_Ovarian)
-        # adjustWpsList_Ovarian = kalman_filter(kal_filter, adjustWpsList_Ovarian)
-        # adjustWpsList_Nor_sw = AdjustWPS(wpsList_Nor_sw)
-        # adjustWpsList_Nor_sw = kalman_filter(kal_filter, adjustWpsList_Nor_sw)
-        # adjustWpsList_Ovarian_sw = AdjustWPS(wpsList_Ovarian_sw)
-        # adjustWpsList_Ovarian_sw = kalman_filter(kal_filter, adjustWpsList_Ovarian_sw)
-        # Savitzky-Golay 滤波器 时域内基于局域多项式最小二乘法拟合
-        # drawWPS(dataList, ['普通样品覆盖度', '原始WPS', '中值预处理WPS', '卡尔曼滤波', '卷积平滑',
-        #                    'Savitzky-Golay滤波', '小波滤波'], x)
-        # plt.savefig('/mnt/X500/farmers/chenlb/DrawWPS/wps_cov_img/' + title_str + '.png')
-
-        # wpsList, up, down = wpsCalBySegTree(wpsSegTree, wpsList, bamfile, win, contig, start, end, s, e)
-        # # ocf = callOCF(up, down)
-        # rawDataList = np.array(wpsList);
-        #
-        # adjustWpsList = AdjustWPS(wpsList)
+        ndrObjectList = findTssNDR(x, start, contig, peakObjectList, smoothWpsList_Nor, rawWPS, norm_lFdepth_Nor,
+                                   squareWave,
+                                   label='sg滤波数据', color='b',
+                                   smoothMethod='sg滤波数据', peakDisThreshold=230)
