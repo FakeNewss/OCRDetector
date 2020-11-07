@@ -5,7 +5,7 @@
       <paths name="chenlb@10.0.1.7:22">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/chenlb/testGitMyWps" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

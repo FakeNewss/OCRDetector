@@ -1,5 +1,3 @@
-Ovarian.all.bam
-Ovarian1.all.bam
-Ovarian2.all.bam
-Ovarian3.all.bam
-Ovarian4.all.bam
+/mnt/X500/farmers/chenhx/02.project/hexiaoti/02.cellPaper_data/IH01.bam
+/mnt/X500/farmers/chenhx/02.project/hexiaoti/02.cellPaper_data/BH01.bam
+/mnt/X500/farmers/chenhx/02.project/hexiaoti/02.cellPaper_data/IH02.bam

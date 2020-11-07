@@ -316,12 +316,14 @@ def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth,
 
 
 def writeOCRsToFile(contig, start, ndrObjectList):
-    # with open('ndrInfo.txt', mode='a+') as f:
-    #     for ndr in ndrObjectList:
-    #         list = [contig, start + ndr.startPos, start + ndr.endPos, start]
-    #         list.extend(rawDataList[max(ndr.startPos - 1000, 0) : min(ndr.endPos + 1000, len(rawDataList))])
-    #         f.write(str(list)+ '\n')
-    with open('ndr_DHSAndTSS.chr10_e.txt', mode='a+') as f:
+    '''
+    Write ndr to file
+    :param contig: Chromosome number
+    :param start: the genome coordinate starting point of ndr
+    :param ndrObjectList:
+    :return:
+    '''
+    with open(outputFilePath, mode='a+') as f:
         for ndr in ndrObjectList:
             list = str(contig) + "\t" + str(start + ndr.startPos) + "\t" + str(start + ndr.endPos)
             f.write(str(list)+ '\n')
@@ -859,7 +861,7 @@ def linearJudgeNDR(smoothData, rawDataList, ndr, flag):
 
 
 inputFilePath = ''
-outputFilePath = ''
+outputFilePath = 'OCRs.bed'
 
 if __name__ == '__main__':
     '''
@@ -893,6 +895,7 @@ if __name__ == '__main__':
     peaksList = []
     peakWdith = []
     peakDis = []
+    print('begin')
     for point in pointList:
         print('*************************************  round : ', round, '  ->  ', allPoint,
               ' *************************************')
