@@ -1,8 +1,27 @@
-from WpsCal import *
+# from WpsCal import *
+# import pysam
+import sys
+import getopt
+import numpy as np
 import pysam
+import scipy
 from scipy.signal import *
-from scipy.interpolate import *
-from scipy import *
+from scipy.signal import savgol_filter
+from scipy import interpolate
+from scipy import integrate
+# from pykalman import *
+from scipy.signal import medfilt
+from sklearn import *
+from sklearn.neighbors import KernelDensity
+import peakutils
+from Peak import Peak
+from NDR import NDR
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from pylab import *
+# from scipy.signal import *
+# from scipy.interpolate import *
+# from scipy import *
 
 class gene:
     def __init__(self, name, chr, startPos, endPos, flag, tssBinStart, tssBinEnd):
@@ -225,6 +244,11 @@ def haveNearContinuouslyPeak(smoothData, rawDataList, peakObjectList, cnt, ndr, 
     # print('haveNearContinuouslyPeak done')
     return varWidth, varHeight, varAngel, varDis, varArea, len(peakRightList) + len(peakLeftList) - maxDisPeakCount
 
+def get_two_float(f_str, n):
+    f_str = str(f_str)      # f_str = '{}'.format(f_str) 也可以转换为字符串
+    a, b, c = f_str.partition('.')
+    c = (c+"0"*n)[:n]       # 如论传入的函数有几位小数，在字符串后面都添加n为小数0
+    return ".".join([a, c])
 
 def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth, squareWave, label, color, smoothMethod,
                peakDisThreshold):
@@ -286,21 +310,21 @@ def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth,
                     ndr.endPos = minIndex + 300
                     ndrObjectList.append(ndr)
                     print('find a NDR')
-    writeNDRToFile(contig, start, ndrObjectList)
+    writeOCRsToFile(contig, start, ndrObjectList)
     return ndrObjectList
 
 
-def getWpsListAndCover(pathList, wpsList, win, contig, start, end, s, e):
-    coverageAllArray = np.zeros(end - start, dtype=np.int)
-    for filePath in pathList:
-        bamfile = readFileData(filePath)
-        win = 120
-        wpsList = wpsCal(wpsList, bamfile, win, contig, start - 300, end + 300, s, e)
-        bamfile = readFileData(filePath)
-        coverageAllArray = getCover(coverageAllArray, bamfile, contig, start, end)
-    wpsList = np.array(wpsList[300:len(wpsList) - 300], float)
-    return wpsList, coverageAllArray
 
+def writeOCRsToFile(contig, start, ndrObjectList):
+    # with open('ndrInfo.txt', mode='a+') as f:
+    #     for ndr in ndrObjectList:
+    #         list = [contig, start + ndr.startPos, start + ndr.endPos, start]
+    #         list.extend(rawDataList[max(ndr.startPos - 1000, 0) : min(ndr.endPos + 1000, len(rawDataList))])
+    #         f.write(str(list)+ '\n')
+    with open('ndr_DHSAndTSS.chr10_e.txt', mode='a+') as f:
+        for ndr in ndrObjectList:
+            list = str(contig) + "\t" + str(start + ndr.startPos) + "\t" + str(start + ndr.endPos)
+            f.write(str(list)+ '\n')
 
 def callOneBed(pathList, contig, bed1, bed2, win):
     # tmpInfor = tmpBed.split("\t")
@@ -571,36 +595,302 @@ def AdjustWPS(wpsList):
         x += 1
     return np.array(subarray)
 
+def readBamFileList(filePath):
+    bamfileList = []
+    with open(filePath, 'r') as bamListReader:
+        while True:
+            path = bamListReader.readline().replace('\n', '')
+            if not path:
+                break
+            bamfileList.append(path)
+    return bamfileList
 
+def getPointData(pointFilePath, cnt):
+    pointList = []
+    file = open(pointFilePath, 'r')
+    dataList = []
+    while True:
+        line = file.readline()
+        if line == None or cnt < 0:
+            break
+        cnt -= 1
+        data =line[0:-1].split('\t')
+        if len(data) == 1:
+            break
+        if not str.isdigit(data[0]):
+            continue
+        dataList.append(data)
+    for data in dataList:
+        pointList.append([str(data[0]), int(data[1]), int(data[2])])
+    return pointList
+
+def getMMM(tmpArray):
+    tmpArray = np.array(tmpArray)
+    return np.min(tmpArray), np.median(tmpArray), np.max(tmpArray)
+
+def scipy_signal_find_peaks_cwt(wpsFilterData):
+    wpsFilterData = np.array(wpsFilterData)
+    peaksX = scipy.signal.find_peaks_cwt(wpsFilterData, np.arange(1, 61), max_distances=np.arange(1, 61) * 2,
+                                         noise_perc=10)
+    # vector, widths, wavelet = None, max_distances = None,
+    # gap_thresh = None, min_length = None, min_snr = 1, noise_perc = 10
+    # x = [i for i in range(win)]
+    # plt.plot(x,wpsFilterData[0:x],'r')
+    # plt.plot(peaksX, wpsFilterData[peaksX], 'xk')
+    # plt.plot(peaksX, wpsFilterData[peaksX], 'xk')
+    # plt.show()
+    # print('scipy_signal_find_peaks_cwt done')
+    print('scipy_signal_find_peaks_cwt done')
+    return [wpsFilterData, peaksX]
+
+def mergePeaks(peaks):
+    '''
+    :param peaks: scipy_signal_find_peaks方法找到的波形
+    :param peaksCWT: scipy_signal_find_peaks_cwt方法找到的波形
+    :return:
+    '''
+
+    for i in range(len(peaks)):
+        if peaks[i].endPos - peaks[i].startPos > 200:
+            if peaks[i].peakIndex - peaks[i].startPos > peaks[i].endPos - peaks[i].peakIndex:
+                peaks[i].startPos = 2 * peaks[i].peakIndex - peaks[i].endPos
+                peaks[i].width = 2 * (peaks[i].endPos - peaks[i].peakIndex)
+            else:
+                peaks[i].endPos = 2 * peaks[i].peakIndex - peaks[i].startPos
+                peaks[i].width = 2 * (peaks[i].peakIndex - peaks[i].startPos)
+    return peaks
+
+def savgol_filter_func(wpsList, filterWin, poly):
+    '''
+    SG Filter
+    SG滤波算法平滑波形,多项式平滑算法 Savitzky-Golay平滑算法
+    :param wpsList: wpsList
+    :return: wpsListFiler SG滤波之后的WPS数据 (WPS data after SG filtering)
+    '''
+
+    x = [i for i in range(len(wpsList))]
+    x = np.array(x)  # list to ndarray
+    wpsList = np.array(wpsList)
+    wpsFilter = savgol_filter(wpsList, filterWin, poly)  # windows length(int)： (must be a positive odd integer);
+    # polyorder(int)；The order of the polynomial used to fit the samples. polyorder must be less than window_length.
+    print('savgol filter done')
+    return wpsFilter
+
+def scipy_signal_find_peaks(wpsFilterData, height, distance, prominence, width):
+
+    peaksX, properties = scipy.signal.find_peaks(wpsFilterData, height=height, distance=distance, prominence=prominence,
+                                                 width=width)
+    # threshold : 和相邻峰垂直高度的阈值 None; min; [min, max]
+    # prominence : 要求突出的峰的高度 None; minl; [min, max]
+    # peaksX, properties = scipy.signal.find_peaks(wpsFilterData, height=0.025)
+    # print("pearsX : ", peaksX)
+    # print(properties)
+    print('scipy_signal_find_peaks done')
+    # properties
+    return [wpsFilterData, peaksX]
+
+def track2leftValley(wpsList, peakIndex, slidWinSize):
+    win1 = wpsList[peakIndex - slidWinSize:peakIndex]
+    win2 = wpsList[peakIndex - slidWinSize * 2:peakIndex - slidWinSize]
+    win3 = wpsList[peakIndex - slidWinSize * 3:peakIndex - slidWinSize * 2]
+    i = 3
+    length = len(win1) + len(win2) + len(win3)
+    x = np.array([i for i in range(0, length)])[:, np.newaxis]
+    while (peakIndex - slidWinSize * i > 0 and slidWinSize * i <= 250 and not (
+            np.sum(win1) > np.sum(win2) and np.sum(win2) < np.sum(win3))) or slidWinSize * i < 60:
+        win1 = win2
+        win2 = win3
+        win3 = wpsList[peakIndex - slidWinSize * (i + 1): peakIndex - slidWinSize * i]
+
+        i += 1
+    if peakIndex - slidWinSize * i < 0 or slidWinSize * i > 250:
+        if peakIndex > 80:
+            return peakIndex - 80
+        else:
+            return 0
+    valIndex = peakIndex - slidWinSize * i + int((slidWinSize + 1) / 2)
+    curIndex = valIndex + int((slidWinSize + 1) / 2)
+    while curIndex < peakIndex - 40 and abs(wpsList[valIndex] - wpsList[curIndex]) < 0.05:
+        curIndex += 1
+
+    return curIndex
+    # model = linear_model.LinearRegression()
+    # y = np.concatenate((win1,win2,win3))[:, np.newaxis]
+    # minlen = min(len(x), len(y))
+    # model.fit(x[0:minlen], y[0:minlen])
+    # print('倾斜程度为', abs(model.coef_) * 1000)
+    # print('end')
+
+def getPointDis(point0, point1):
+    return ((point0[0] - point1[0]) ** 2 + (point0[1] - point1[1]) ** 2) ** 0.5
+
+def getTriangleArea(point0, point1, point2):
+    line0 = getPointDis(point0, point1)
+    line1 = getPointDis(point0, point2)
+    line2 = getPointDis(point1, point2)
+    p = (line0 + line1 + line2) / 2
+    return (p*(p - line0)*(p - line1)*(p - line2))** 0.5
+
+def track2rightValley(wpsList, peakIndex, slidWinSize):
+    win1 = wpsList[peakIndex:peakIndex + slidWinSize]
+    win2 = wpsList[peakIndex + slidWinSize:peakIndex + slidWinSize * 2]
+    win3 = wpsList[peakIndex + slidWinSize * 2:peakIndex + slidWinSize * 3]
+    i = 3
+    while ((not (np.sum(win1) > np.sum(win2) and np.sum(win2) < np.sum(win3)) and peakIndex + slidWinSize * i < len(
+            wpsList) - 1) and slidWinSize * i <= 250) or slidWinSize * i < 60:
+        win1 = win2
+        win2 = win3
+        win3 = wpsList[peakIndex + slidWinSize * i: peakIndex + slidWinSize * (i + 1)]
+        i += 1
+    if peakIndex + slidWinSize * i > len(wpsList):
+        return len(wpsList) - 1
+    valIndex = peakIndex + slidWinSize * i - int((slidWinSize + 1) / 2)
+    curIndex = valIndex - int((slidWinSize + 1) / 2)
+    while curIndex > peakIndex + 60 and abs(wpsList[valIndex] - wpsList[curIndex]) < 0.05:
+        curIndex -= 1
+
+    return curIndex
+
+def trackLeftPeak(smoothData, rawDataList, ndr, slidWinSize):
+    win1 = smoothData[ndr.endPos - slidWinSize:ndr.endPos]
+    win2 = smoothData[ndr.endPos - slidWinSize * 2:ndr.endPos - slidWinSize]
+    win3 = smoothData[ndr.endPos - slidWinSize * 3:ndr.endPos - slidWinSize * 2]
+    i = 3
+    while (ndr.endPos - slidWinSize * 3 > 0 and ndr.endPos - slidWinSize * 3 > ndr.startPos and
+           not (np.sum(win1) < np.sum(win2) and np.sum(win2) > np.sum(win3))) or np.sum(win2) < 0:
+        win1 = win2
+        win2 = win3
+        win3 = smoothData[ndr.endPos - slidWinSize * (i + 1): ndr.endPos - slidWinSize * i]
+        i += 1
+    if ndr.endPos - slidWinSize * i + int((slidWinSize + 1) / 2) < 0:
+        return ndr.startPos
+    return ndr.endPos - slidWinSize * i + int((slidWinSize + 1) / 2)
+
+def trackRightPeak(smoothData, rawDataList, ndr, slidWinSize):
+    win1 = smoothData[ndr.startPos:ndr.startPos + slidWinSize]
+    win2 = smoothData[ndr.startPos + slidWinSize:ndr.startPos + slidWinSize * 2]
+    win3 = smoothData[ndr.startPos + slidWinSize * 2:ndr.startPos + slidWinSize * 3]
+    i = 3
+    while (not (np.sum(win1) < np.sum(win2) and np.sum(win2) > np.sum(win3)) and ndr.startPos + slidWinSize * (
+            i + 1) < len(smoothData) - 1 and ndr.startPos + slidWinSize * (i + 1) < ndr.endPos) or np.sum(win2) < 0:
+        win1 = win2
+        win2 = win3
+        win3 = smoothData[ndr.startPos + slidWinSize * i: ndr.startPos + slidWinSize * (i + 1)]
+        i += 1
+    if ndr.startPos + slidWinSize * i - 3 > ndr.endPos:
+        return min(ndr.endPos, len(smoothData))
+    return ndr.startPos + slidWinSize * i - int((slidWinSize + 1) / 2)
+
+def getValley(wpsList, rawDataList, peaks, slidWinSize):
+    leftValleyList = []
+    rightValleyList = []
+    for peakX in peaks:
+        left = track2leftValley(wpsList, peakX, slidWinSize)
+        right = track2rightValley(wpsList, peakX, slidWinSize)
+        leftValleyList.append(left)
+        rightValleyList.append(right)
+    peakObjectList = []
+
+    for i in range(len(peaks)):
+        leftPeakK = 0
+        rightPeakK = 0
+        if peaks[i] - leftValleyList[i] != 0 and rawDataList[peaks[i]] != rawDataList[leftValleyList[i]]:
+            leftPeakK = (rawDataList[peaks[i]] - rawDataList[leftValleyList[i]]) / (peaks[i] - leftValleyList[i])
+        if peaks[i] - rightValleyList[i] != 0 and rawDataList[peaks[i]] != rawDataList[rightValleyList[i]]:
+            rightPeakK = (rawDataList[peaks[i]] - rawDataList[rightValleyList[i]]) / (peaks[i] - rightValleyList[i])
+        peakObjectList.append(
+            Peak(peaks[i], leftValleyList[i], rightValleyList[i], rightValleyList[i] - leftValleyList[i], leftPeakK, rightPeakK))
+    return peakObjectList
+
+
+def mergeValley(peakObjectList):
+    for i in range(len(peakObjectList)):
+        if i == len(peakObjectList) - 1:
+            break;
+        if peakObjectList[i].endPos > peakObjectList[i + 1].peakIndex:
+            peakObjectList[i].endPos = int((peakObjectList[i].peakIndex + peakObjectList[i + 1].peakIndex) / 2)
+        elif peakObjectList[i + 1].startPos < peakObjectList[i].endPos:
+            peakObjectList[i + 1].startPos = peakObjectList[i].endPos
+    return peakObjectList
+
+def getPeakAveHeight(wpsList, startPos, endPos):
+    '''
+    :param wpsList: 原始数据
+    :param startPos: 起始位置
+    :param endPos: 终止位置
+    :return:
+    '''
+    if endPos > len(wpsList) or startPos == endPos:
+        return 0
+    # print([startPos, endPos])
+    x = np.arange(startPos, endPos, 1)
+    minNum = np.min(wpsList[startPos:endPos])
+    minLine = np.array([minNum for i in range(endPos - startPos)])
+    # lowLine = np.array([-0.5 for i in range(len(x))])
+    return scipy.integrate.simps(np.subtract(np.array(wpsList)[startPos:endPos], minLine), x=x)
+
+def readFileData(filePath):
+    '''
+    :param filePath: bam文件路径
+    :return: bamfile bam文件
+    '''
+    # data.template_length  fragment length
+    # data.reference_start  start point
+    # data.query_name
+    # data.query_sequence sequencing data
+    bamfile = pysam.AlignmentFile(filePath, 'rb')
+    print('get bamfile done')
+    return bamfile
+
+
+def linearJudgeNDR(smoothData, rawDataList, ndr, flag):
+    model = linear_model.LinearRegression()
+    x = np.array([i for i in range(ndr.startPos, ndr.endPos)])[:, np.newaxis]
+    y = smoothData[ndr.startPos:ndr.endPos][:, np.newaxis]
+    model.fit(x, y)
+    if flag:
+        print(model.intercept_)  # 截距
+        print(model.coef_)
+        plt.plot(x, y, marker = '.', color = 'r')
+        plt.plot(x, model.coef_*x + model.intercept_, color = 'k')
+        title('直线为 ： ' + str(model.coef_) + 'x + ' + str(model.intercept_) + '    均方误差 : ' + str(np.mean((model.predict(x) - y) ** 2)))
+        plt.show()
+    return model.coef_, np.mean((model.predict(x) - y) ** 2) * 1000
+
+
+inputFilePath = ''
+outputFilePath = ''
 
 if __name__ == '__main__':
-    OvarianPathList = ['/mnt/X500/farmers/chenhx/02.project/hexiaoti/01.sWGS_data/Ovarian.all.bam']
-    NormalPathList = ['/mnt/X500/farmers/chenhx/02.project/hexiaoti/02.cellPaper_data/IH01.bam',
-                      '/mnt/X500/farmers/chenhx/02.project/hexiaoti/02.cellPaper_data/BH01.bam',
-                      '/mnt/X500/farmers/chenhx/02.project/hexiaoti/02.cellPaper_data/IH02.bam']
-    mergeBamListPath = '/home/kuangni/chenhx/chenlb/work/result/merge.bam.list'
-    lungBamListPath = '/home/kuangni/chenhx/chenlb/work/result/Lung.bam.list.new'
-    OvarianBamListPath = '/home/kuangni/chenhx/chenlb/work/result/Ovarian.bam.list'
-    # bamfileList = getPathList(lungBamListPath)
-    bamfileList = NormalPathList
+    '''
+        ndr:nucleosome-depleted region
+        ocr:Open chromatin region
+        In this program, the meaning of ndr is the same as ocr
+    '''
+    opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            # usage
+            usage = '''Usage:   python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed]
+    Example: python OCRDetectBycfDNA.py -i bamFileList.txt -o OCRs.bed
+    Options:
+        -h: usage
+        -i: bam file list of cfDNA
+        -o: output file of detected OCRs'''
+            print(usage)
+            sys.exit()
+        if o in ("-i", "--input"):
+            inputFilePath = a
+        if o in ("-o", "--output"):
+            outputFilePath = a
+    bamfileList = readBamFileList(inputFilePath)
 
-    # pointFilePath = '/mnt/X500/farmers/chenhx/02.project/hexiaoti/05.NDR_all/wholegenome.20k.filter.bin'
-    # pointFilePath = '/home/chenlb/result/HK.all.txt.bed'
-    pointFilePath = '/home/chenlb/result/Overlap.ndr_HK.bed'
-    # pointFilePath = '/home/kuangni/chenhx/chenlb/work/result/TSS.bed'
-    # pointFilePath = '/home/kuangni/chenhx/chenlb/work/result/wholegenome.20k.filter.bin'
-    # pointFilePath = '/home/kuangni/chenhx/chenlb/work/result/Overlap.HK_ndr.2000.txt.bed'
-    # pointFilePath = '/home/kuangni/chenhx/chenlb/work/result/HK_gene_info.chr1_5.txt.bed.sort'
-    # pointFilePath = '/home/chenlb/WPSCalProject/filePathList/HK_gene_info.chr1_5.txt.bed.sort'
-    # geneDict = getTSSPoint('/home/chenlb/WPSCalProject/filePathList/GRCh37.gene.bed', 100000)
-
+    pointFilePath = './wholegenome.20k.filter.bin'
     pointList = getPointData(pointFilePath, 1000000000)
     allPoint = len(pointList)
     round = 0
     s = e = 0
     peaksList = []
-    t1 = time.clock()
-
     peakWdith = []
     peakDis = []
     for point in pointList:

@@ -1,14 +1,14 @@
 import sys
-import pysam
+# import pysam
 import time
-import matplotlib as mpl
-# mpl.use('Agg')
-import matplotlib.pyplot as plt
-from pylab import *
-import pandas as pd
-import scipy.signal
-import numpy as np
-import pylab as pl
+# import matplotlib as mpl
+# # mpl.use('Agg')
+# import matplotlib.pyplot as plt
+# from pylab import *
+# import pandas as pd
+# import scipy.signal
+# import numpy as np
+# import pylab as pl
 from scipy.signal import *
 from scipy.signal import savgol_filter
 from scipy import interpolate
@@ -19,28 +19,28 @@ from sklearn import *
 from sklearn.neighbors import KernelDensity
 import peakutils
 # import pywt
-import gc
+# import gc
 
 # import lowess as lo
 
-from SegmentTree import SegmentTree
-from NDR import NDR
-from Peak import Peak
-import Kalman_filter
-import callNDR
-# import statsmodels.api as sm
-# sys.setrecursionlimit(100000)     设置程序最大运行深度
-from matplotlib.font_manager import FontProperties
+# from SegmentTree import SegmentTree
+# from NDR import NDR
+# from Peak import Peak
+# import Kalman_filter
+# import callNDR
+# # import statsmodels.api as sm
+# # sys.setrecursionlimit(100000)     设置程序最大运行深度
+# from matplotlib.font_manager import FontProperties
 # from numba import jit
 
 
-font = FontProperties(
-    fname='/home/chenlb/anaconda3/lib/python3.7/site-packages/matplotlib/mpl-data/fonts/ttf/SimHei.ttf')
-
+# font = FontProperties(
+#     fname='/home/chenlb/anaconda3/lib/python3.7/site-packages/matplotlib/mpl-data/fonts/ttf/SimHei.ttf')
 #
-plt.rcParams['font.family'] = ['sans-serif']
-plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.rcParams['axes.unicode_minus'] = False
+# #
+# plt.rcParams['font.family'] = ['sans-serif']
+# plt.rcParams['font.sans-serif'] = ['SimHei']
+# plt.rcParams['axes.unicode_minus'] = False
 
 
 # mpl.rcParams['font.sans-serif'] = ['SimHei']
@@ -108,39 +108,39 @@ def getBamFileInformationByNoOrderBam(contig, bamfile, start, end):
     return s, e
 
 #@jit
-def wpsCalBySegTreeByNoOrderBam(bamfile, win, contig, start, end, s, e):
-    '''
-    利用线段树数据结构加速计算wps值
-    :param bamfile: bam文件操作符
-    :param win: 计算wps的窗口值
-    :param contig: 需计算的染色体名称
-    :param start: 染色体提取起点
-    :param end: 染色体提取终点
-    :param s: 需计算的起点
-    :param e: 需计算的终点
-    :return: wpsList: wps列表
-    '''
-    cnt = 0
-    wpsList = [0 for i in range(e - s + 1000)]
-    print('start : ', start, ' end : ', end)
-    wpsSegTree = SegmentTree(len(wpsList), wpsList)
-    for data in bamfile:
-        if data.reference_start >= start and data.reference_start <= end:
-            # print(data.template_length,data.reference_start,' -- ',data.query_name ,data.query_sequence)
-            if data.isize > 0 and data.isize < 1000:
-                listIndex = data.reference_start - s
-                biWin = int(win / 2)
-                wpsSegTree.addupdate(1, listIndex + biWin, listIndex + data.isize - biWin, 1, len(wpsList), 1)
-                wpsSegTree.addupdate(1, listIndex, listIndex + biWin - 1, 1, len(wpsList), -1)
-                wpsSegTree.addupdate(1, listIndex + data.isize - biWin + 1, listIndex + data.isize, 1, len(wpsList), -1)
-        else:
-            if cnt > 2000:
-                break
-            cnt += 1
-    for i in range(len(wpsList)):
-        wpsList[i] = wpsSegTree.query(1, i + 1, i + 1, 1, len(wpsList))
-    print('wpsCalBySegTree done')
-    return wpsList
+# def wpsCalBySegTreeByNoOrderBam(bamfile, win, contig, start, end, s, e):
+#     '''
+#     利用线段树数据结构加速计算wps值
+#     :param bamfile: bam文件操作符
+#     :param win: 计算wps的窗口值
+#     :param contig: 需计算的染色体名称
+#     :param start: 染色体提取起点
+#     :param end: 染色体提取终点
+#     :param s: 需计算的起点
+#     :param e: 需计算的终点
+#     :return: wpsList: wps列表
+#     '''
+#     cnt = 0
+#     wpsList = [0 for i in range(e - s + 1000)]
+#     print('start : ', start, ' end : ', end)
+#     wpsSegTree = SegmentTree(len(wpsList), wpsList)
+#     for data in bamfile:
+#         if data.reference_start >= start and data.reference_start <= end:
+#             # print(data.template_length,data.reference_start,' -- ',data.query_name ,data.query_sequence)
+#             if data.isize > 0 and data.isize < 1000:
+#                 listIndex = data.reference_start - s
+#                 biWin = int(win / 2)
+#                 wpsSegTree.addupdate(1, listIndex + biWin, listIndex + data.isize - biWin, 1, len(wpsList), 1)
+#                 wpsSegTree.addupdate(1, listIndex, listIndex + biWin - 1, 1, len(wpsList), -1)
+#                 wpsSegTree.addupdate(1, listIndex + data.isize - biWin + 1, listIndex + data.isize, 1, len(wpsList), -1)
+#         else:
+#             if cnt > 2000:
+#                 break
+#             cnt += 1
+#     for i in range(len(wpsList)):
+#         wpsList[i] = wpsSegTree.query(1, i + 1, i + 1, 1, len(wpsList))
+#     print('wpsCalBySegTree done')
+#     return wpsList
 
 #@jit
 def wpsCal(wpsList, bamfile, win, contig, start, end, s, e):
