@@ -18,5 +18,5 @@ Options:
 ​	-o: output file of detected OCRs
 
 First, you need to replace the path in bamFileList.txt with your bam file path.
-
+In addition, you can use bedtools to calculate the intersection of our OCRs and OCRs obtained from other data (ATAC-seq, Dnase-seq, TSS).
 Instructions will be updated ...  
