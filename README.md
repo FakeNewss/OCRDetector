@@ -17,4 +17,6 @@ Options:
 
 ​	-o: output file of detected OCRs
 
+First, you need to replace the path in bamFileList.txt with your bam file path.
+
 Instructions will be updated ...  
