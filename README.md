@@ -31,19 +31,19 @@ python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed]
 
   *The above command can calculate the OCRs of the whole genome*
 
-  ![image-20210408220024041](.\images\figure1.png)
+  ![image-20210408220024041](./images/figure1.png)
 
 - `python OCRDetectBycfDNA.py -i bamFileList.txt -o OCRs.bed -c -1`
 
   *The above command can calculate the OCRs of chromosome 1*
 
-  ![image-20210408220409219](.\images\figure1_2.png)
+  ![image-20210408220409219](./images/figure1_2.png)
 
 - `python OCRDetectBycfDNA.py -h`
 
   *View the usage of the software*
 
-![image-20210408215235338](.\images\figure2.png)
+![image-20210408215235338](./images/figure2.png)
 
 ------
 
@@ -51,7 +51,7 @@ python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed]
 
 First, you need to modify the content of the bamFileList.txt file and replace it with the path of your cfDNA-seq data. The input cfDNA-seq data file is of bam type and has been indexed.
 
-![image-20210408213119734](.\images\bamFilePaths.png)
+![image-20210408213119734](./images/bamFilePaths.png)
 
 **Step2:**
 
