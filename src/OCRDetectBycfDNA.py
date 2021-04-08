@@ -19,9 +19,8 @@ from NDR import NDR
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from pylab import *
-# from scipy.signal import *
-# from scipy.interpolate import *
-# from scipy import *
+import warnings
+warnings.filterwarnings('ignore')
 
 class gene:
     def __init__(self, name, chr, startPos, endPos, flag, tssBinStart, tssBinEnd):
@@ -250,20 +249,13 @@ def get_two_float(f_str, n):
     c = (c+"0"*n)[:n]       # 如论传入的函数有几位小数，在字符串后面都添加n为小数0
     return ".".join([a, c])
 
-def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth, squareWave, label, color, smoothMethod,
-               peakDisThreshold):
+def findTssNDR(start, contig, peakObjectList, smoothData, depth):
     '''
-    :param start: 起始位置
-    :param x:
-    :param contig: 染色体标号
-    :param peakObjectList: 波峰列表
-    :param smoothData: 平滑数据
-    :param rawDataList: 原始数据
-    :param label:
-    :param color: 颜色
-    :param smoothMethod: 平滑方法
-    :param peakDisThreshold: 阈值
-    :return:
+    :param start: start of bed
+    :param contig:
+    :param peakObjectList:
+    :param smoothData:
+    :return: the bed of OCRs
     '''
     ndrObjectList = []
     for i in range(len(peakObjectList) - 1):
@@ -271,10 +263,9 @@ def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth,
                                                                     smoothData[peakObjectList[i].endPos])
         peakHeight2 = smoothData[peakObjectList[i + 1].peakIndex] - max(smoothData[peakObjectList[i + 1].startPos],
                                                                         smoothData[peakObjectList[i + 1].endPos])
-        if (peakObjectList[i + 1].startPos - peakObjectList[i].endPos > 135 or peakObjectList[i + 1].peakIndex -
-            peakObjectList[i].peakIndex > 280 and peakObjectList[i + 1].peakIndex - peakObjectList[
-                i].peakIndex < 1500) or (peakHeight1 < 0.3 and peakHeight2 < 0.3 and peakObjectList[i + 1].peakIndex -
-                                        peakObjectList[i].peakIndex > 240):
+        if peakObjectList[i + 1].startPos - peakObjectList[i].endPos > 135 or \
+                peakObjectList[i + 1].peakIndex - peakObjectList[i].peakIndex > 250 and peakObjectList[i + 1].peakIndex - peakObjectList[
+                i].peakIndex < 600:
             if peakObjectList[i + 1].startPos != peakObjectList[i].endPos:
                 aveHeight = getPeakAveHeight(smoothData, peakObjectList[i].endPos,
                                              peakObjectList[i + 1].startPos) / (
@@ -285,31 +276,12 @@ def findTssNDR(x, start, contig, peakObjectList, smoothData, rawDataList, depth,
                     ndr.aveHeight = aveHeight
                     ndrAreaDepth, smallNdrAreaDepth, minIndex = judgeLowDepth(depth, ndr.startPos, ndr.endPos)
                     # print('ndrAreaDepth -- smallNdrAreaDepth', ndrAreaDepth, ' -- ', smallNdrAreaDepth)
-                    if ndrAreaDepth > 250 or smallNdrAreaDepth > 35:
-                        continue
-                    kRight, kLeft, kNDR, ndrArea, ndrMax = judgeNDRWithDepth(smoothData, rawDataList, depth, squareWave,
-                                                                             ndr,
-                                                                             peakObjectList, contig, start,
-                                                                             slidWinSize=6,
-                                                                             flag=False)
-                    coef, mse = linearJudgeNDR(smoothData, rawDataList, ndr, False)
-                    # print([coef, mse])
-                    varWidth, varHeight, varAngel, varDis, varArea, peakCount = haveNearContinuouslyPeak(smoothData,
-                                                                                                         rawDataList,
-                                                                                                         peakObjectList,
-                                                                                                         5, ndr,
-                                                                                                         False)
-                    condition = [varWidth < 450, varHeight < 1200, varAngel < 220, varDis < 350, varArea < 300,
-                                 peakCount >= 7]
-                    cnt = condition.count(True)
-                    if (ndrAreaDepth > 250 or (cnt < 4 and varDis >= 250 and varAngel >= 100 and varWidth >= 200 and varArea >= 100) or varDis >= 700 or varAngel >= 450 or varWidth >= 800) and not (
-                          kLeft < 0.22 and kRight < 0.22 and kNDR < 0.25 and ndrArea < 10 and coef[0][
-                        0] * 1000 < 3 and mse < 4 and smallNdrAreaDepth < 45):
+                    if ndrAreaDepth > 400 or smallNdrAreaDepth > 75:
                         continue
                     ndr.startPos = minIndex - 300
                     ndr.endPos = minIndex + 300
                     ndrObjectList.append(ndr)
-                    print('find a NDR')
+                    # print('find a NDR')
     writeOCRsToFile(contig, start, ndrObjectList)
     return ndrObjectList
 
@@ -466,10 +438,6 @@ def drawPeaksWithDepth(lFDepth, base, dataList, win, x, start, y_label):
     lineList = []
     cIndex = 0
     fig, axes = plt.subplots(len(dataList) + 0, 1, figsize=(8, int((len(dataList) + 0) * 2.5)), dpi=200)
-    # axes[0].plot(x[0: min(len(x), len(lFDepth))], lFDepth[0: min(len(x), len(lFDepth))], colorsList[0])
-    # axes[0].grid(axis="y", linestyle='--')
-    # axes[1].plot(x[0: min(len(x), len(base))], base[0: min(len(x), len(base))], '#12aa9c')
-    # axes[1].grid(axis="y", linestyle='--')
     for data in dataList:
         wpsFilterData = np.array(data[0])
         peaksX = data[1]
@@ -607,7 +575,7 @@ def readBamFileList(filePath):
             bamfileList.append(path)
     return bamfileList
 
-def getPointData(pointFilePath, cnt):
+def getPointData(chr, pointFilePath, cnt):
     pointList = []
     file = open(pointFilePath, 'r')
     dataList = []
@@ -620,6 +588,8 @@ def getPointData(pointFilePath, cnt):
         if len(data) == 1:
             break
         if not str.isdigit(data[0]):
+            continue
+        if chr != -1 and int(data[0]) != chr:
             continue
         dataList.append(data)
     for data in dataList:
@@ -644,23 +614,6 @@ def scipy_signal_find_peaks_cwt(wpsFilterData):
     # print('scipy_signal_find_peaks_cwt done')
     print('scipy_signal_find_peaks_cwt done')
     return [wpsFilterData, peaksX]
-
-def mergePeaks(peaks):
-    '''
-    :param peaks: scipy_signal_find_peaks方法找到的波形
-    :param peaksCWT: scipy_signal_find_peaks_cwt方法找到的波形
-    :return:
-    '''
-
-    for i in range(len(peaks)):
-        if peaks[i].endPos - peaks[i].startPos > 200:
-            if peaks[i].peakIndex - peaks[i].startPos > peaks[i].endPos - peaks[i].peakIndex:
-                peaks[i].startPos = 2 * peaks[i].peakIndex - peaks[i].endPos
-                peaks[i].width = 2 * (peaks[i].endPos - peaks[i].peakIndex)
-            else:
-                peaks[i].endPos = 2 * peaks[i].peakIndex - peaks[i].startPos
-                peaks[i].width = 2 * (peaks[i].peakIndex - peaks[i].startPos)
-    return peaks
 
 def savgol_filter_func(wpsList, filterWin, poly):
     '''
@@ -805,15 +758,6 @@ def getValley(wpsList, rawDataList, peaks, slidWinSize):
     return peakObjectList
 
 
-def mergeValley(peakObjectList):
-    for i in range(len(peakObjectList)):
-        if i == len(peakObjectList) - 1:
-            break;
-        if peakObjectList[i].endPos > peakObjectList[i + 1].peakIndex:
-            peakObjectList[i].endPos = int((peakObjectList[i].peakIndex + peakObjectList[i + 1].peakIndex) / 2)
-        elif peakObjectList[i + 1].startPos < peakObjectList[i].endPos:
-            peakObjectList[i + 1].startPos = peakObjectList[i].endPos
-    return peakObjectList
 
 def getPeakAveHeight(wpsList, startPos, endPos):
     '''
@@ -862,6 +806,7 @@ def linearJudgeNDR(smoothData, rawDataList, ndr, flag):
 
 inputFilePath = ''
 outputFilePath = 'OCRs.bed'
+chr = '-1'
 
 if __name__ == '__main__':
     '''
@@ -869,26 +814,36 @@ if __name__ == '__main__':
         ocr:Open chromatin region
         In this program, the meaning of ndr is the same as ocr
     '''
-    opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
-    for o, a in opts:
+    opts, args = getopt.getopt(sys.argv[1:], "hi:o:c:", ["help", "input=", "output=", "chr="])
+    for o, arg in opts:
         if o in ("-h", "--help"):
             # usage
-            usage = '''Usage:   python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed]
+            usage = '''Usage:   python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed] [-c Chromosome number]
     Example: python OCRDetectBycfDNA.py -i bamFileList.txt -o OCRs.bed
     Options:
         -h: usage
         -i: bam file list of cfDNA
-        -o: output file of detected OCRs'''
+        -o: output file of detected OCRs
+        -c: the Chromosome number (The default is -1, to get the OCRs of the whole genome. Other input : 1, 2, 3,...,22) 
+        '''
             print(usage)
             sys.exit()
         if o in ("-i", "--input"):
-            inputFilePath = a
+            inputFilePath = arg
         if o in ("-o", "--output"):
-            outputFilePath = a
+            outputFilePath = arg
+        if o in ("-c", "--chr"):
+            if len(arg) != 0:
+                chr = arg
+            print(arg)
+    if not str.isdigit(chr) and int(chr) != -1 and (int(chr) < 1 or int(chr) > 22):
+        print('Invalid chromosome number')
+        sys.exit()
+    chr = int(chr)
     bamfileList = readBamFileList(inputFilePath)
 
     pointFilePath = './wholegenome.20k.filter.bin'
-    pointList = getPointData(pointFilePath, 1000000000)
+    pointList = getPointData(chr, pointFilePath, 1000000000)
     allPoint = len(pointList)
     round = 0
     s = e = 0
@@ -905,28 +860,20 @@ if __name__ == '__main__':
         end = int(point[2])
         step = end - start
         peaksList = []
-        dataList = []
-        x = np.arange(start, end)
         length = step + 1
         wpsList_Nor, lFdepth_Nor, sFdepth_Nor = callOneBed(bamfileList, contig, start, end, win=120)
         rawWPS = np.array(wpsList_Nor)
         adjustWpsList_Nor = AdjustWPS(wpsList_Nor)
-        squareWave = []
         try:
             base = peakutils.baseline(adjustWpsList_Nor, 8)
         except ZeroDivisionError:  # 'ZeroDivisionError'除数等于0的报错方式^M
             base = np.zeros(len(adjustWpsList_Nor))
         adjustWpsList_Nor = np.subtract(adjustWpsList_Nor, base)
-        smoothWpsList_Nor = savgol_filter_func(adjustWpsList_Nor, 35, 1) #SG Filter
+        smoothWpsList_Nor = savgol_filter_func(adjustWpsList_Nor, 51, 1) #SG Filter
         norm_lFdepth_Nor = preprocessing.minmax_scale(lFdepth_Nor)
         peakHeight = []
         for data in [smoothWpsList_Nor]:
             peaks = scipy_signal_find_peaks(data, height=0.28, distance=25, prominence=0.25, width=[25, 170])
             peakObjectList = getValley(data, rawWPS, peaks[1], 5)
-            mergeValley(peakObjectList)
-            peakObjectList = mergePeaks(peakObjectList)
             peaksList.append([data, peaks[1], peakObjectList])
-        ndrObjectList = findTssNDR(x, start, contig, peakObjectList, smoothWpsList_Nor, rawWPS, norm_lFdepth_Nor,
-                                   squareWave,
-                                   label='sg滤波数据', color='b',
-                                   smoothMethod='sg滤波数据', peakDisThreshold=230)
+        ndrObjectList = findTssNDR(start, contig, peakObjectList, smoothWpsList_Nor, norm_lFdepth_Nor)
