@@ -16,11 +16,11 @@ python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed]
 **Options:**
 
 ```shell
-	-h: usage
+-h: usage
 
-​	-i: bam file list of cfDNA
+-i: bam file list of cfDNA
 
-​	-o: output file of detected OCRs
+-o: output file of detected OCRs
 ```
 
 ------
