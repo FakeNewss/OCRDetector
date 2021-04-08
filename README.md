@@ -33,7 +33,7 @@ python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed]
 
   ![image-20210408220024041](./images/figure1.png)
 
-- `python OCRDetectBycfDNA.py -i bamFileList.txt -o OCRs.bed -c -1`
+- `python OCRDetectBycfDNA.py -i bamFileList.txt -o OCRs.bed -c 1`
 
   *The above command can calculate the OCRs of chromosome 1*
 
