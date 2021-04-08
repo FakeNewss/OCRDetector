@@ -46,6 +46,7 @@ python OCRDetectBycfDNA.py [-h usage] [-i input file] [-o OCRs output bed]
 ![image-20210408215235338](./images/figure2.png)
 
 ------
+**Guidance：**
 
 **Step1:**
 
