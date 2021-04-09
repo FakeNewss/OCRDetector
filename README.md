@@ -58,13 +58,15 @@ First, you need to modify the content of the bamFileList.txt file and replace it
 
 `python OCRDetectBycfDNA.py -i bamFileList.txt -o OCRs.bed`
 
+The above command can get the initial OCRs.
+
 **Step3:**
 
 Extract features and train machine learning models to filter false positives.
 
 **Step4:**
 
-Use bedtools to calculate the intersection of our OCRs and OCRs obtained from other data (ATAC-seq, Dnase-seq, TSS).
+Use bedtools to calculate the intersection of our OCRs and OCRs obtained from other data (ATAC-seq, Dnase-seq, TSS of Genes ).
 
 ------
 
